@@ -1,44 +1,68 @@
-// index.js
-// where your node app starts
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const dns = require('dns');
+const app = express();
 
-// init project
-var express = require('express');
-var app = express();
+// Basic Configuration
+const port = process.env.PORT || 3000;
 
-// enable CORS (https://en.wikipedia.org/wiki/Cross-origin_resource_sharing)
-// so that your API is remotely testable by FCC 
-var cors = require('cors');
-app.use(cors({ optionsSuccessStatus: 200 }));  // some legacy browsers choke on 204
+app.use(cors());
+app.use(bodyParser.urlencoded({ extended: false }));
 
-// http://expressjs.com/en/starter/static-files.html
-app.use(express.static('public'));
+// In-memory storage for URLs
+let urlDatabase = {};
+let idCounter = 1;
 
-// http://expressjs.com/en/starter/basic-routing.html
-app.get("/", function (req, res) {
-  res.sendFile(__dirname + '/views/index.html');
+app.use('/public', express.static(`${process.cwd()}/public`));
+
+app.get('/', function (req, res) {
+  res.sendFile(process.cwd() + '/views/index.html');
 });
 
-// your first API endpoint... 
-app.get("/api/hello", function (req, res) {
+// Your first API endpoint
+app.get('/api/hello', function (req, res) {
   res.json({ greeting: 'hello API' });
 });
 
-// Your main API endpoint for /api/whoami
-app.get("/api/whoami", (req, res) => {
-  const ipaddress = req.ip; // IP address of the client
-  const language = req.get('Accept-Language'); // Preferred language
-  const software = req.get('User-Agent'); // User's software (browser info)
+// POST endpoint to shorten a URL
+app.post('/api/shorturl', (req, res) => {
+  const originalUrl = req.body.url;
 
-  // Send back a JSON response with the desired information
-  res.json({
-    ipaddress: ipaddress,
-    language: language,
-    software: software
+  // Validate the URL format
+  const urlPattern = /^(https?:\/\/)(www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]+/;
+  if (!urlPattern.test(originalUrl)) {
+    return res.json({ error: 'invalid url' });
+  }
+
+  // Extract the hostname to verify it resolves
+  const hostname = new URL(originalUrl).hostname;
+  dns.lookup(hostname, (err) => {
+    if (err) {
+      return res.json({ error: 'invalid url' });
+    }
+
+    // Save the URL and generate a short URL
+    const shortUrl = idCounter++;
+    urlDatabase[shortUrl] = originalUrl;
+    res.json({ original_url: originalUrl, short_url: shortUrl });
   });
 });
 
-// Listen on port set in environment variable or default to 3000
-var listener = app.listen(process.env.PORT || 3000, function () {
-  console.log('Your app is listening on port ' + listener.address().port);
+// GET endpoint to redirect to the original URL
+app.get('/api/shorturl/:short_url', (req, res) => {
+  const shortUrl = parseInt(req.params.short_url, 10);
+
+  // Validate the short URL exists
+  if (!urlDatabase[shortUrl]) {
+    return res.json({ error: 'No short URL found for the given input' });
+  }
+
+  // Redirect to the original URL
+  res.redirect(urlDatabase[shortUrl]);
 });
 
+app.listen(port, function () {
+  console.log(`Listening on port ${port}`);
+});
