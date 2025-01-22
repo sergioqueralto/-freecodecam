@@ -23,32 +23,22 @@ app.get("/api/hello", function (req, res) {
   res.json({ greeting: 'hello API' });
 });
 
-// Your main API endpoint
-app.get("/api/:date?", (req, res) => {
-  const { date } = req.params;
+// Your main API endpoint for /api/whoami
+app.get("/api/whoami", (req, res) => {
+  const ipaddress = req.ip; // IP address of the client
+  const language = req.get('Accept-Language'); // Preferred language
+  const software = req.get('User-Agent'); // User's software (browser info)
 
-  if (!date) {
-    // If no date is provided, return the current time
-    res.json({
-      unix: Date.now(),
-      utc: new Date().toUTCString(),
-    });
-  } else {
-    // Handle the case where a date is provided
-    const parsedDate = isNaN(date) ? new Date(date) : new Date(Number(date));
-
-    if (parsedDate.toString() === "Invalid Date") {
-      res.json({ error: "Invalid Date" });
-    } else {
-      res.json({
-        unix: parsedDate.getTime(),
-        utc: parsedDate.toUTCString(),
-      });
-    }
-  }
+  // Send back a JSON response with the desired information
+  res.json({
+    ipaddress: ipaddress,
+    language: language,
+    software: software
+  });
 });
 
 // Listen on port set in environment variable or default to 3000
 var listener = app.listen(process.env.PORT || 3000, function () {
   console.log('Your app is listening on port ' + listener.address().port);
 });
+
